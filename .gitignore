@@ -1,0 +1,15 @@
+# 忽略所有 PNG 图片
+*.png
+
+# 忽略特定 Python 文件
+SDP_test.py
+SDP_complete.py
+
+# 忽略 Python 缓存目录
+__pycache__/
+.ipynb_checkpoints/
+
+# 忽略实验目录
+experiment_results/
+path_delays/
+path_variance/
