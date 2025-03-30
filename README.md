@@ -8,12 +8,12 @@
 + 提供完整的实验比较框架，包括与Gurobi和L1-L2优化Baseline算法的对比
 + 支持批量实验和结果统计分析
 ## 项目结构
-+ 'main.py'：主程序入口，包含实验控制、结果评估和可视化功能
-+ 'simulator.py'：网络模拟器，生成链路和路径时延数据
-+ 'SDP_complete_link.py'：实现基于半正定规划的链路方差推断算法
-+ 'alg_gurobi.py'：实现基于Gurobi优化的链路拥塞检测算法（作为Baseline）
-+ 'alg_l1_l2.py'：实现基于L1-L2优化的链路拥塞检测算法（作为Baseline）
-+ 'path_selection_strategies.py'：实现不同的路径选择策略
++ `main.py`：主程序入口，包含实验控制、结果评估和可视化功能
++ `simulator.py`：网络模拟器，生成链路和路径时延数据
++ `SDP_complete_link.py`：实现基于半正定规划的链路方差推断算法
++ `alg_gurobi.py`：实现基于Gurobi优化的链路拥塞检测算法（作为Baseline）
++ `alg_l1_l2.py`：实现基于L1-L2优化的链路拥塞检测算法（作为Baseline）
++ `path_selection_strategies.py`：实现不同的路径选择策略
 ## 安装依赖
 本项目需要以下库：
 ```bash
