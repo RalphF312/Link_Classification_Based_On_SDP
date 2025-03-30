@@ -4,6 +4,7 @@
 # 忽略特定 Python 文件
 SDP_test.py
 SDP_complete.py
+route_matrix_to_tree_topo.py
 
 # 忽略 Python 缓存目录
 __pycache__/
