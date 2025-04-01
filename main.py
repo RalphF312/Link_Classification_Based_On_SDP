@@ -15,6 +15,8 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 from path_selection_strategies import get_path_selection_strategy
 from alg_gurobi import tomo_gurobi
+# 导入链路性能生成器
+from link_performance_generator import generate_link_performance
 
 
 def ensure_directory(directory):
@@ -52,141 +54,6 @@ def convert_paths_to_binary(R, true_labels):
             path_binary_states[i] = 1
 
     return path_binary_states
-
-
-def run_simulator(experiment_dir, random_seed=None, custom_args=None):
-    """
-    运行网络模拟器生成链路和路径时延数据
-
-    参数:
-    experiment_dir: 实验结果目录，数据也会保存到该目录
-    random_seed: 随机数生成器种子，用于控制实验可重复性
-    custom_args: 自定义命令行参数列表，用于传递额外参数给模拟器
-
-    返回:
-    是否成功运行
-    """
-    print("\n" + "=" * 80)
-    print("步骤1: 运行网络模拟器生成时延数据")
-    print("=" * 80)
-
-    # 确保输出目录存在
-    ensure_directory('./output')
-    ensure_directory('./path_variance')
-
-    try:
-        # 查看是否存在simulator.py文件
-        if not os.path.exists('simulator.py'):
-            print(f"错误: 找不到模拟器文件 simulator.py")
-            print(f"当前工作目录: {os.getcwd()}")
-            print("当前目录下的文件:")
-            for file in os.listdir('.'):
-                print(f"  - {file}")
-            return False
-
-        # 运行模拟器，并指定实验目录和故障链路参数
-        print("开始执行模拟器...")
-        cmd = ["python", "simulator.py", "--experiment_dir", experiment_dir]
-
-        # 添加随机故障链路参数（固定为随机选择）
-        cmd.append("--random_faults")
-
-        # 添加随机种子参数（如果提供）
-        if random_seed is not None:
-            cmd.extend(["--random_seed", str(random_seed)])
-
-        # 添加自定义参数（如果提供）
-        if custom_args:
-            for arg in custom_args:
-                # 确保参数是字符串
-                cmd.append(str(arg))
-
-        print(f"执行命令: {' '.join(cmd)}")
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-
-        # 打印模拟器输出
-        print("模拟器标准输出:")
-        print(result.stdout)
-
-        if result.stderr:
-            print("模拟器错误输出:")
-            print(result.stderr)
-
-        # 验证生成的文件
-        # 先检查实验目录中的文件
-        exp_path_variance_file = f'{experiment_dir}/path_variance/path_variance.txt'
-        exp_link_variance_file = f'{experiment_dir}/path_variance/link_variance.txt'
-        exp_route_matrix_file = f'{experiment_dir}/output/route_matrix.txt'
-
-        # 再检查原始目录中的文件
-        orig_path_variance_file = './path_variance/path_variance.txt'
-        orig_link_variance_file = './path_variance/link_variance.txt'
-        orig_route_matrix_file = './output/route_matrix.txt'
-
-        # 首先验证实验目录中的文件
-        files_exist = True
-        if not os.path.exists(exp_path_variance_file):
-            print(f"警告: 未找到实验目录中的路径方差文件 {exp_path_variance_file}")
-            files_exist = False
-        if not os.path.exists(exp_link_variance_file):
-            print(f"警告: 未找到实验目录中的链路方差文件 {exp_link_variance_file}")
-            files_exist = False
-        if not os.path.exists(exp_route_matrix_file):
-            print(f"警告: 未找到实验目录中的路由矩阵文件 {exp_route_matrix_file}")
-            files_exist = False
-
-        # 如果实验目录中的文件不完整，检查原始目录
-        if not files_exist:
-            print("检查原始目录中的文件...")
-            files_exist = True
-            if not os.path.exists(orig_path_variance_file):
-                print(f"错误: 未找到原始路径方差文件 {orig_path_variance_file}")
-                files_exist = False
-            if not os.path.exists(orig_link_variance_file):
-                print(f"错误: 未找到原始链路方差文件 {orig_link_variance_file}")
-                files_exist = False
-            if not os.path.exists(orig_route_matrix_file):
-                print(f"错误: 未找到原始路由矩阵文件 {orig_route_matrix_file}")
-                files_exist = False
-
-            # 如果原始目录中有文件，复制到实验目录
-            if files_exist:
-                print("从原始目录复制文件到实验目录...")
-                ensure_directory(f"{experiment_dir}/output")
-                ensure_directory(f"{experiment_dir}/path_variance")
-
-                shutil.copy2(orig_route_matrix_file, exp_route_matrix_file)
-                shutil.copy2(orig_link_variance_file, exp_link_variance_file)
-                shutil.copy2(orig_path_variance_file, exp_path_variance_file)
-
-                # 如果有其他文件也复制
-                for file in os.listdir('./path_variance'):
-                    if file not in ['path_variance.txt', 'link_variance.txt']:
-                        src = f'./path_variance/{file}'
-                        dst = f'{experiment_dir}/path_variance/{file}'
-                        if os.path.isfile(src):
-                            shutil.copy2(src, dst)
-
-        if files_exist:
-            print("验证: 所有必要的数据文件都已成功生成")
-            return True
-        else:
-            print("错误: 未能生成所有必要的数据文件")
-            return False
-
-    except subprocess.CalledProcessError as e:
-        print(f"运行模拟器失败: {e}")
-        print("错误输出:")
-        print(e.stderr)
-        return False
-    except Exception as e:
-        print(f"运行模拟器时发生异常: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-
 
 def run_sdr_inference(strategy, ratio, experiment_dir, selected_paths_file=None):
     """
@@ -1950,54 +1817,28 @@ def run_batch_experiments(ratios, experiment_dir, num_repetitions=100):
         ratio_dir = f"{experiment_dir}/ratio_{int(ratio * 100)}"
         ensure_directory(ratio_dir)
 
-    # 首先运行一次模拟器，为所有比例生成相同的链路故障分布
-    # 这个模拟结果只用于记录链路标签，不用于实际实验
-    base_dir = f"{experiment_dir}/base_simulation"
-    ensure_directory(base_dir)
+    # 直接从预生成数据目录加载数据
+    data_dir = './output/Link_Path_Attribute'
 
-    # 使用固定种子生成故障链路分布
-    base_seed = 42  # 使用固定的基础种子
-    print("生成基础故障链路分布...")
-    simulator_success = run_simulator(base_dir, random_seed=base_seed)
+    # 加载路由矩阵
+    route_matrix_path = f'{data_dir}/output/route_matrix.txt'
+    R = np.loadtxt(route_matrix_path, delimiter='\t').astype(int)
 
-    if not simulator_success:
-        print("基础故障链路分布生成失败，无法继续实验")
+    # 加载链路标签文件
+    link_labels_path = f'{data_dir}/path_variance/link_labels.txt'
+    link_labels = np.loadtxt(link_labels_path).astype(int)
+    # 加载故障链路信息
+    fault_links_path = f'{data_dir}/path_variance/fault_links.txt'
+    if os.path.exists(fault_links_path):
+        # 读取故障链路信息（用于输出报告）
+        with open(fault_links_path, 'r') as f:
+            fault_links_info = f.read()
+
+    # 检查路径方差文件
+    path_variance_path = f'{data_dir}/path_variance/path_variance.txt'
+    if not os.path.exists(path_variance_path):
+        print(f"错误: 找不到路径方差文件 {path_variance_path}")
         return
-
-    # 读取生成的故障链路信息
-    fault_links_file = f"{base_dir}/path_variance/fault_links.txt"
-    external_fault_links = []
-    bandwidth_fault_links = []
-
-    if os.path.exists(fault_links_file):
-        with open(fault_links_file, 'r') as file:
-            for line in file:
-                if '外部流量致拥链路:' in line:
-                    try:
-                        links_str = line.split(':')[1].strip()
-                        links_str = links_str.replace('[', '').replace(']', '')
-                        if links_str:
-                            external_fault_links = [int(x.strip()) for x in links_str.split(',') if x.strip()]
-                    except Exception as e:
-                        print(f"解析外部流量链路时出错: {e}")
-
-                if '带宽减小致拥链路:' in line:
-                    try:
-                        links_str = line.split(':')[1].strip()
-                        links_str = links_str.replace('[', '').replace(']', '')
-                        if links_str:
-                            bandwidth_fault_links = [int(x.strip()) for x in links_str.split(',') if x.strip()]
-                    except Exception as e:
-                        print(f"解析带宽减小链路时出错: {e}")
-
-    # 将所有故障链路保存到一个文件，供后续使用
-    all_fault_links = external_fault_links + bandwidth_fault_links
-    print(f"基础故障链路分布: 外部流量链路 {external_fault_links}, 带宽减小链路 {bandwidth_fault_links}")
-
-    with open(f"{experiment_dir}/fault_links.txt", 'w') as file:
-        file.write(f"外部流量致拥链路: {external_fault_links}\n")
-        file.write(f"带宽减小致拥链路: {bandwidth_fault_links}\n")
-        file.write(f"所有故障链路: {all_fault_links}\n")
 
     # 为不同比例运行多次实验
     for ratio in ratios:
@@ -2007,9 +1848,6 @@ def run_batch_experiments(ratios, experiment_dir, num_repetitions=100):
 
         ratio_dir = f"{experiment_dir}/ratio_{int(ratio * 100)}"
 
-        # 复制故障链路信息到比例目录
-        shutil.copy2(f"{experiment_dir}/fault_links.txt", f"{ratio_dir}/fault_links.txt")
-
         for rep in range(num_repetitions):
             print(f"\n[重复实验 {rep + 1}/{num_repetitions}]")
 
@@ -2017,38 +1855,9 @@ def run_batch_experiments(ratios, experiment_dir, num_repetitions=100):
             rep_dir = f"{ratio_dir}/rep{rep + 1}"
             ensure_directory(rep_dir)
 
-            # 复制故障链路信息到重复实验目录
+            # 复制必要的数据文件到重复实验目录
+            ensure_directory(f"{rep_dir}/output")
             ensure_directory(f"{rep_dir}/path_variance")
-            shutil.copy2(f"{experiment_dir}/fault_links.txt", f"{rep_dir}/path_variance/fault_links.txt")
-
-            # 在每次重复实验中，运行网络模拟器生成新的链路时延数据
-            # 使用rep作为随机种子的一部分，确保不同重复的随机性，但使用相同的故障链路配置
-            rep_seed = base_seed + rep  # 基础种子+重复次数，确保每次重复有不同的时延生成
-
-            # 准备故障链路参数
-            ext_links_str = ",".join(map(str, external_fault_links))
-            bw_links_str = ",".join(map(str, bandwidth_fault_links))
-
-            # 准备命令行参数
-            custom_args = [
-                "--external_fault_links", ext_links_str,
-                "--bandwidth_fault_links", bw_links_str
-            ]
-
-            # 使用指定的故障链路，而不是随机生成
-            simulator_success = run_simulator(rep_dir, random_seed=rep_seed,
-                                              custom_args=custom_args)
-
-            if not simulator_success:
-                print(f"重复 {rep + 1} 的网络模拟失败，跳过此次实验")
-                continue
-
-            # 加载路由矩阵
-            route_matrix_file = f'{rep_dir}/output/route_matrix.txt'
-            if not os.path.exists(route_matrix_file):
-                route_matrix_file = './output/route_matrix.txt'
-
-            R = np.loadtxt(route_matrix_file, delimiter='\t').astype(int)
 
             # 选择观测路径
             path_selection_func = get_path_selection_strategy('random')
