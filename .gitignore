@@ -1,3 +1,4 @@
+.gitignore
 # 忽略所有 PNG 图片
 *.png
 
@@ -14,3 +15,6 @@ __pycache__/
 experiment_results/
 path_delays/
 path_variance/
+output/
+simulation_results/
+alg_CLINK.py
