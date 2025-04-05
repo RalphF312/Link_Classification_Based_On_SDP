@@ -47,14 +47,14 @@ class RouteDataGenerator:
         返回:
             dict: 每种链路类型的延迟分布参数
         """
-        # 类型 0: 正常链路 (指数分布)
-        # 类型 1: 外部流量致拥链路 (伽马分布)
-        # 类型 2: 带宽被攻击减小链路 (威布尔分布)
+        # 类型 0: 正常链路 (泊松分布，参数为30)
+        # 类型 1: 外部流量致拥链路 (泊松分布，参数为100)
+        # 类型 2: 带宽被攻击减小链路 (泊松分布，参数为200)
 
         distributions = {
-            0: {"type": "exponential", "scale": random.uniform(5, 15)},
-            1: {"type": "gamma", "shape": random.uniform(2, 4), "scale": random.uniform(5, 10)},
-            2: {"type": "weibull", "shape": random.uniform(1.5, 2.5), "scale": random.uniform(10, 20)}
+            0: {"type": "poisson", "lam": 30},
+            1: {"type": "poisson", "lam": 100},
+            2: {"type": "poisson", "lam": 200}
         }
 
         return distributions
@@ -73,13 +73,13 @@ class RouteDataGenerator:
         """
         if link_type == 0:  # Normal Link
             params = distribution_params[0]
-            delays = np.random.exponential(scale=params["scale"], size=num_samples)
+            delays = np.random.poisson(lam=params["lam"], size=num_samples)
         elif link_type == 1:  # External traffic link
             params = distribution_params[1]
-            delays = np.random.gamma(shape=params["shape"], scale=params["scale"], size=num_samples)
+            delays = np.random.poisson(lam=params["lam"], size=num_samples)
         elif link_type == 2:  # Attack-reduced link
             params = distribution_params[2]
-            delays = np.random.weibull(params["shape"], size=num_samples) * params["scale"]
+            delays = np.random.poisson(lam=params["lam"], size=num_samples)
         else:
             raise ValueError(f"Invalid link type: {link_type}")
 
